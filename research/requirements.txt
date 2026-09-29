@@ -1,0 +1,3 @@
+# Core research engine uses Python standard library only.
+# Optional IBKR paper adapter. 2.1.x is the current maintained line as of Sep 2026.
+ib_async>=2.1.0,<3

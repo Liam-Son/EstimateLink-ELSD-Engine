@@ -1,0 +1,51 @@
+{
+  "alpha_id": "levWKewl_low_volume_exit_variant",
+  "alpha_name": "Estimate-Link × Certainty × IV180 Sector Hybrid — low-volume exit test",
+  "brain_alpha_source": "EstimateLink_low_volume_exit_FASTEXPR.txt",
+  "signal": {
+    "est_backfill": 150,
+    "corr_window": 22,
+    "stable_decay": 7,
+    "certainty_window": 84,
+    "iv_backfill": 55,
+    "iv_mean": 32,
+    "core_decay": 4,
+    "range_decay": 5,
+    "platform_decay": 5,
+    "link_weight": 0.60,
+    "certainty_weight": 0.20,
+    "iv_weight": 0.20,
+    "core_final_weight": 0.65,
+    "range_final_weight": 0.35,
+    "volume_gate": 0.85,
+    "range_exit_ratio": 0.50
+  },
+  "portfolio": {
+    "gross_target": 1.0,
+    "max_abs_weight": 0.06,
+    "min_names": 20
+  },
+  "timing": {
+    "delay_days": 1,
+    "warmup_days_recommended": 200
+  },
+  "research": {
+    "adv20_mode": "auto",
+    "gap_policy": "reset",
+    "price_policy": "error",
+    "cost_bps_per_dollar_traded": 10.0,
+    "short_borrow_bps_annual": 0.0,
+    "financing_bps_annual": 0.0,
+    "capacity_capital": 1000000.0,
+    "max_adv_participation": 0.01
+  },
+  "paper": {
+    "allowed_ports": [7497, 4002],
+    "max_gross_notional": 100000,
+    "max_name_notional": 5000,
+    "max_order_notional": 5000,
+    "max_orders": 100,
+    "min_order_notional": 25,
+    "max_signal_age_calendar_days": 4
+  }
+}

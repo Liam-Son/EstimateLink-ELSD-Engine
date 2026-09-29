@@ -1,0 +1,20 @@
+{
+  "id": "levWKewl",
+  "name": "Estimate-Link × Certainty × IV180 Sector Hybrid",
+  "status_at_inspection": "ACTIVE",
+  "regular": {
+    "code": "// MARKET neut, stronger core\nptp_x = ts_backfill(est_ptp, 150);\nfcf_x = ts_backfill(est_fcf, 150);\neps_x = ts_backfill(est_eps, 150);\nstable = ts_decay_linear(\n    0.4*(-ts_corr(ptp_x,fcf_x,22))\n  + 0.3*(-ts_corr(ptp_x,eps_x,22))\n  + 0.3*(-ts_corr(fcf_x,eps_x,22)), 7);\nlink_alpha = group_rank(stable, sector);\ncert = group_rank(ts_rank(earnings_certainty_rank_derivative, 84), sector);\niv180 = group_zscore(ts_mean(ts_backfill(implied_volatility_call_180-implied_volatility_put_180,55), 32), sector);\ncore = group_neutralize(0.60*link_alpha + 0.20*cert + 0.20*iv180, sector);\nrng = group_neutralize(\n    trade_when(volume > 0.85*adv20, -rank(ts_decay_linear((close-open)/(high-low), 5)), 0),\n    industry\n);\n0.65 * ts_decay_linear(core, 4) + 0.35 * rng"
+  },
+  "settings": {
+    "instrumentType": "EQUITY", "region": "USA", "universe": "TOP3000", "delay": 1,
+    "decay": 5, "neutralization": "MARKET", "truncation": 0.06,
+    "pasteurization": "ON", "unitHandling": "VERIFY", "nanHandling": "OFF",
+    "maxTrade": "OFF", "maxPosition": "OFF", "language": "FASTEXPR",
+    "startDate": "2019-01-01", "endDate": "2023-12-31", "testPeriod": "P1Y"
+  },
+  "brain_is_reference_only": {
+    "sharpe": 2.75, "fitness": 3.23, "returns": 0.359,
+    "turnover": 0.2605, "drawdown": 0.1077, "selfCorrelation": 0.4723
+  },
+  "brain_os_at_inspection": "pending"
+}

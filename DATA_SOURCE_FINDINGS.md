@@ -1,0 +1,14 @@
+# Data-source findings (2026-09-29)
+
+The exact WorldQuant BRAIN signal is runnable in the user's signed-in BRAIN account. Its `est_ptp` field appears in BRAIN's [Analyst Estimate Data for Equity catalog](https://platform.worldquantbrain.com/data/data-fields/est_ptp), with the description “Pretax income - mean of estimations.” The catalog offers “Simulate Field”; I did not find a bulk export control in its field or dataset view. Access to the BRAIN field inside BRAIN does not establish a right or a technical route to move historical values to QuantConnect.
+
+| Source | What it provides | Gap for the exact Estimate-Link alpha |
+| --- | --- | --- |
+| [QuantConnect US Equity Coarse Universe](https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/us-equity-coarse-universe) | Daily price and volume for the historical US equity universe, including delisted stocks; the adapter ranks 63-day average dollar volume to approximate TOP3000 | BRAIN's precise liquidity and eligibility rules may differ; this only identifies a stock universe |
+| [QuantConnect Estimize](https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/extractalpha/estimize) | Point-in-time-style event records for EPS and revenue estimates; 2,800 US equities, from January 2011 | Different estimate source and coverage; does not document BRAIN's `est_ptp`, `est_fcf`, or `earnings_certainty_rank_derivative` |
+| [QuantConnect US Equity Option Universe](https://www.quantconnect.com/docs/v2/writing-algorithms/datasets/quantconnect/us-equity-option-universe) | Daily historical contract-level IV and Greeks for about 4,000 symbols, from January 2012 | A 180-day call/put IV series can be constructed using a declared strike/expiry rule, but it is not established as identical to BRAIN's two IV180 fields |
+| [S&P Capital IQ Estimates](https://www.spglobal.com/market-intelligence/en/solutions/capital-iq-estimates) | Licensed analyst estimates with point-in-time snapshots | Potential source for an independent estimate-based study, but field definitions, TOP3000 history, and BRAIN equivalence are unverified |
+
+QuantConnect says [Cloud dataset licenses](https://www.quantconnect.com/docs/v2/cloud-platform/datasets/licensing) may cost money and that paid cloud access requires a plan above Free. The exact six-field, 2018–2023 point-in-time TOP3000 panel needed by this project's CSV adapter was not found as a public, free, licensed download. Do not fill missing fields from current estimates, reported actuals, or synthetic values and label the result as a BRAIN replication.
+
+The honest next paths are: use BRAIN for the exact BRAIN simulation, or source and license an independently defined historical estimate/IV panel for an explicitly labeled QuantConnect approximation. Neither path changes the already observed BRAIN return into a QuantConnect return.

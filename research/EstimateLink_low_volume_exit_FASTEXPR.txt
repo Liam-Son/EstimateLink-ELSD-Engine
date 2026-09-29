@@ -1,0 +1,17 @@
+// Estimate-Link low-volume exit VARIANT: only trade_when exit differs from levWKewl.
+ptp_x = ts_backfill(est_ptp, 150);
+fcf_x = ts_backfill(est_fcf, 150);
+eps_x = ts_backfill(est_eps, 150);
+stable = ts_decay_linear(
+    0.4*(-ts_corr(ptp_x,fcf_x,22))
+  + 0.3*(-ts_corr(ptp_x,eps_x,22))
+  + 0.3*(-ts_corr(fcf_x,eps_x,22)), 7);
+link_alpha = group_rank(stable, sector);
+cert = group_rank(ts_rank(earnings_certainty_rank_derivative, 84), sector);
+iv180 = group_zscore(ts_mean(ts_backfill(implied_volatility_call_180-implied_volatility_put_180,55), 32), sector);
+core = group_neutralize(0.60*link_alpha + 0.20*cert + 0.20*iv180, sector);
+rng = group_neutralize(
+    trade_when(volume > 0.85*adv20, -rank(ts_decay_linear((close-open)/(high-low), 5)), volume < 0.50*adv20),
+    industry
+);
+0.65 * ts_decay_linear(core, 4) + 0.35 * rng
