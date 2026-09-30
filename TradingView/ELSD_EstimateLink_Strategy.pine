@@ -1,0 +1,117 @@
+//@version=5
+strategy("ELSD v3 - Estimate-Link & Skew Disconnect Strategy", overlay=true, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=5, commission_type=strategy.commission.percent, commission_value=0.02)
+
+// ==============================================================================
+// 1. INPUT PARAMETERS & CONFIGURATION
+// ==============================================================================
+group_sleeve = "Core & Range Sleeve Weights"
+w_core = input.float(0.65, "Core Sleeve Weight (Fundamental & Skew)", minval=0.0, maxval=1.0, group=group_sleeve)
+w_range = input.float(0.35, "Range Sleeve Weight (Liquidity Exhaustion)", minval=0.0, maxval=1.0, group=group_sleeve)
+
+group_range = "Liquidity-Gated Range Parameters"
+adv_len = input.int(20, "ADV Lookback Period", minval=5, group=group_range)
+vol_thresh = input.float(0.85, "Volume Entry Gate (x ADV20)", step=0.05, group=group_range)
+vol_exit_thresh = input.float(0.50, "Low Volume Exit Gate (x ADV20)", step=0.05, group=group_range)
+decay_len = input.int(5, "Price Exhaustion Decay Lookback", minval=2, group=group_range)
+
+group_fund = "Fundamental Estimate-Link Parameters"
+use_financials = input.bool(true, "Use Financials Proxy (Quarterly EPS/FCF)", group=group_fund)
+eps_decay_len = input.int(7, "Fundamental Link Decay Period", minval=2, group=group_fund)
+
+group_risk = "Risk Management & Execution"
+enable_stops = input.bool(true, "Enable ATR Trailing Stop", group=group_risk)
+atr_len = input.int(14, "ATR Length", group=group_risk)
+atr_mult = input.float(2.5, "ATR Multiplier", group=group_risk)
+
+// ==============================================================================
+// 2. RANGE SLEEVE: LIQUIDITY-GATED EXHAUSTION REVERSAL
+// ==============================================================================
+// ADV20 calculation
+adv20 = ta.sma(volume, adv_len)
+
+// Intraday price exhaustion: (close - open) / (high - low)
+candle_range = (high - low)
+candle_body = (close - open)
+exhaustion_raw = candle_range > 0 ? (candle_body / candle_range) : 0.0
+
+// Linear decay function matching ts_decay_linear(x, 5)
+f_decay_linear(src, len) =>
+    weight_sum = len * (len + 1) / 2.0
+    val = 0.0
+    for i = 0 to len - 1
+        w = len - i
+        val := val + src[i] * w
+    val / weight_sum
+
+exhaustion_decay = f_decay_linear(exhaustion_raw, decay_len)
+
+// Volume condition: active when volume > 0.85 * adv20
+vol_gate = volume > (vol_thresh * adv20)
+vol_exit_condition = volume < (vol_exit_thresh * adv20)
+
+// Range alpha: negative of exhaustion when volume is elevated
+var float range_alpha = 0.0
+if vol_gate
+    range_alpha := -exhaustion_decay
+else if vol_exit_condition
+    range_alpha := 0.0
+
+// ==============================================================================
+// 3. CORE SLEEVE: FUNDAMENTAL LINK & VOLATILITY SKEW PROXY
+// ==============================================================================
+// In TradingView Pine Script, quarterly financial indicators can be retrieved via request.financial
+eps_reported = request.financial(syminfo.tickerid, "EARNINGS_PER_SHARE", "FQ", gaps=barmerge.gaps_off, ignore_invalid_symbol=true)
+fcf_reported = request.financial(syminfo.tickerid, "FREE_CASH_FLOW", "FQ", gaps=barmerge.gaps_off, ignore_invalid_symbol=true)
+
+// Estimate-Link momentum: change in reported metrics relative to historical baseline
+eps_change = (ta.change(eps_reported) != 0) ? ta.change(eps_reported) : 0.0
+fcf_change = (ta.change(fcf_reported) != 0) ? ta.change(fcf_reported) : 0.0
+
+// Normalized momentum proxy
+eps_norm = ta.stdev(close, 20) > 0 ? (close - ta.sma(close, 50)) / ta.stdev(close, 20) : 0.0
+core_alpha_raw = (use_financials and not na(eps_reported)) ? (0.6 * ta.change(eps_reported) + 0.4 * eps_norm) : eps_norm
+core_alpha = f_decay_linear(core_alpha_raw, 4)
+
+// ==============================================================================
+// 4. COMPOSITE ELSD SIGNAL GENERATION
+// ==============================================================================
+elsd_composite = (w_core * core_alpha) + (w_range * range_alpha)
+signal_smoothed = ta.ema(elsd_composite, 3)
+
+// Entry and Exit Conditions
+long_condition = (signal_smoothed > 0.15) and (volume > 0.7 * adv20)
+short_condition = (signal_smoothed < -0.15) and (volume > 0.7 * adv20)
+exit_condition = (signal_smoothed > -0.05 and signal_smoothed < 0.05) or vol_exit_condition
+
+// ==============================================================================
+// 5. RISK MANAGEMENT & EXECUTION
+// ==============================================================================
+atr_val = ta.atr(atr_len)
+long_stop = close - (atr_mult * atr_val)
+short_stop = close + (atr_mult * atr_val)
+
+if (long_condition)
+    strategy.entry("ELSD_Long", strategy.long, alert_message='{"action":"BUY", "symbol":"' + syminfo.ticker + '", "qty": 100, "engine":"ELSD_v3"}')
+
+if (short_condition)
+    strategy.entry("ELSD_Short", strategy.short, alert_message='{"action":"SELL", "symbol":"' + syminfo.ticker + '", "qty": 100, "engine":"ELSD_v3"}')
+
+if (exit_condition)
+    strategy.close("ELSD_Long", comment="Exit Signal", alert_message='{"action":"CLOSE", "symbol":"' + syminfo.ticker + '"}')
+    strategy.close("ELSD_Short", comment="Exit Signal", alert_message='{"action":"CLOSE", "symbol":"' + syminfo.ticker + '"}')
+
+if (enable_stops)
+    strategy.exit("Stop_Long", "ELSD_Long", stop=long_stop)
+    strategy.exit("Stop_Short", "ELSD_Short", stop=short_stop)
+
+// ==============================================================================
+// 6. VISUALIZATION & PLOTS
+// ==============================================================================
+plot(ta.sma(close, 20), "SMA 20", color=color.new(color.blue, 60), linewidth=1)
+plot(ta.sma(close, 50), "SMA 50", color=color.new(color.orange, 50), linewidth=1)
+
+plotshape(long_condition, title="ELSD Long Signal", style=shape.triangleup, location=location.belowbar, color=color.green, size=size.small, text="ELSD BUY")
+plotshape(short_condition, title="ELSD Short Signal", style=shape.triangledown, location=location.abovebar, color=color.red, size=size.small, text="ELSD SELL")
+
+// Background tint when liquidity gate is active
+bgcolor(vol_gate ? color.new(color.blue, 94) : na, title="Liquidity Gate Active")

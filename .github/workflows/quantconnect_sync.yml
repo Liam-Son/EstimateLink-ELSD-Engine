@@ -1,0 +1,70 @@
+name: QuantConnect & Research Engine CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  test-engine:
+    name: Run Python Research Tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r research/requirements.txt
+          pip install pytest
+
+      - name: Run Pytest Suite
+        run: |
+          cd research
+          python -m pytest tests -v
+
+  validate-quantconnect:
+    name: Validate QuantConnect LEAN Algorithm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Validate Python Syntax in QuantConnect Files
+        run: |
+          python -m py_compile QuantConnect/main.py
+          python -m py_compile QuantConnect/signal_engine.py
+          python -m py_compile QuantConnect/portfolio.py
+          python -m py_compile QuantConnect/data_layer.py
+          python -m py_compile QuantConnect/operators.py
+
+  sync-quantconnect-cloud:
+    name: Sync with QuantConnect Cloud (Project 37111273)
+    needs: [test-engine, validate-quantconnect]
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Sync Notification / LEAN Cloud Push
+        env:
+          QC_USER_ID: ${{ secrets.QUANTCONNECT_USER_ID }}
+          QC_API_TOKEN: ${{ secrets.QUANTCONNECT_API_TOKEN }}
+          QC_PROJECT_ID: "37111273"
+        run: |
+          if [ -n "$QC_API_TOKEN" ]; then
+            echo "Pushing QuantConnect code to Project $QC_PROJECT_ID via LEAN CLI..."
+            pip install lean
+            lean login --user-id "$QC_USER_ID" --api-token "$QC_API_TOKEN"
+            lean cloud push --project "$QC_PROJECT_ID"
+          else
+            echo "Note: QUANTCONNECT_API_TOKEN not configured in GitHub Secrets. Native Web IDE Git Sync remains active."
+          fi
