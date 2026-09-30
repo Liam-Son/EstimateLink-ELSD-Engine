@@ -1,5 +1,7 @@
 # Estimate-Link: BRAIN-aligned research package
 
+![Estimate-Link (ELSD) v3 Performance Tear Sheet](assets/performance_sheet.png)
+
 This package contains the original Estimate-Link v3 engine and its QuantConnect research adapter. The alpha expression and simulation settings in `brain_alpha.json` match the signed-in WorldQuant BRAIN alpha `levWKewl` inspected on 2026-09-29. The source handoff already had the correct expression and settings; the QuantConnect adapter's default test dates were still in 2024 and are now 2019-01-01 through 2023-12-31.
 
 ## Observed BRAIN settings
